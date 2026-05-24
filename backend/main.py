@@ -295,4 +295,4 @@ async def get_financial_insights(batch_id: str = None):
         
     except Exception as e:
         print(f"Error: {e}") 
-        return {"summary": "Error generating analysis.", "insights": [], "recommendations": []}
+        return {"summary": "Error generating analysis.", "insights": [], "recommendations": []} 
