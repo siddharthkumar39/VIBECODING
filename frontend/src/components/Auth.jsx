@@ -17,8 +17,8 @@ const Auth = ({ onLoginSuccess }) => {
     setLoading(true);
 
 const url = isLogin
- ? `${API_BASE_URL}/api/login`
- : `${API_BASE_URL}/api/signup`;
+ ? `${API_BASE_URL}/login`
+ : `${API_BASE_URL}/signup`;
     
     // API request body
     const bodyData = isLogin 
