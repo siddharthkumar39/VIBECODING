@@ -3,9 +3,10 @@ import InvoiceUploader from './components/InvoiceUploader';
 import Dashboard from './components/Dashboard';
 import Auth from './components/Auth'; 
 
-//  PDF extraction ke liye
+// PDF extraction ke liye
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import { Download, LogOut } from 'lucide-react';
 
 function App() {
   const [currentBatchId, setCurrentBatchId] = useState(null); 
@@ -43,7 +44,7 @@ function App() {
   };
 
   // NAYA FUNCTION: Poore report ko single PDF me download karne ke liye
-const downloadReportPDF = async () => {
+  const downloadReportPDF = async () => {
     const reportElement = document.getElementById('pdf-report-content');
     if (!reportElement) return alert("Bhai, pehle koi data toh screen par aane do!");
 
@@ -53,11 +54,12 @@ const downloadReportPDF = async () => {
       // 1. Recharts ke animation poore hone ke liye thoda ruko
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // 2. html-to-image se image generate karo (oklch supported)
+      // 2. html-to-image se image generate karo 
+      // NAYA: Background ab light (#f8fafc) hoga taaki PDF clean aaye
       const dataUrl = await toPng(reportElement, {
         quality: 1,
-        pixelRatio: 2, // High resolution ke liye
-        backgroundColor: '#f9fafb' // Background color matching
+        pixelRatio: 2, 
+        backgroundColor: '#f8fafc' 
       });
       
       // 3. PDF mein image ko dalo
@@ -93,24 +95,31 @@ const downloadReportPDF = async () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-slate-50 text-slate-800 py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+      
+      {/* Soft Bokeh & Natural Glowing Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] rounded-full bg-purple-300/40 blur-[120px] pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-teal-300/40 blur-[120px] pointer-events-none"></div>
+      <div className="absolute top-[40%] right-[-10%] w-[30%] h-[30%] rounded-full bg-pink-200/30 blur-[100px] pointer-events-none"></div>
+
+      <div className="max-w-7xl mx-auto relative z-10">
         
         {/* Header Section */}
-        <div className="relative flex justify-center items-center mb-10 min-h-[48px]">
-          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight text-center">
-             <span className="text-purple-600">AI FinTech Analyzer</span>
+        <div className="relative flex justify-center items-center mb-12 min-h-[48px] bg-white/60 backdrop-blur-xl py-4 px-8 rounded-3xl border border-white shadow-sm">
+          <h1 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight text-center">
+             Nexus<span className="text-purple-600 font-light">AI</span> FinTech
           </h1>
           
           {/* Logout Button */}
           {isAuthenticated && (
-            <div className="absolute right-0 flex items-center space-x-4">
-              <span className="font-semibold text-gray-700 hidden sm:block">Hi, {userName}</span>
+            <div className="absolute right-4 sm:right-8 flex items-center space-x-4">
+              <span className="font-medium text-slate-500 hidden sm:block text-sm">Welcome, <span className="text-slate-800 font-bold">{userName}</span></span>
               <button 
                 onClick={handleLogout} 
-                className="bg-red-100 text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-200 transition"
+                className="flex items-center gap-2 bg-white/80 border border-slate-200 text-slate-600 px-4 py-2 rounded-xl font-semibold hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-all duration-300 shadow-sm"
               >
-                Logout
+                <LogOut size={16} />
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
           )}
@@ -119,22 +128,32 @@ const downloadReportPDF = async () => {
         {/* Conditional Rendering */}
         {isAuthenticated ? (
           <>
-            {/* NAYA: PDF Download Button - Sirf tabhi dikhega jab screen par koi data ho */}
-            <div className="flex justify-end mb-4">
+            {/* PDF Download Button */}
+            <div className="flex justify-end mb-6">
               <button
                 onClick={downloadReportPDF}
                 disabled={isDownloading}
-                className={`font-bold py-2.5 px-6 rounded-xl text-white shadow-md transition-all ${
+                className={`flex items-center gap-2 font-bold py-3 px-6 rounded-2xl text-white shadow-lg transition-all duration-300 ${
                   isDownloading 
-                    ? 'bg-gray-400 cursor-wait' 
-                    : 'bg-green-600 hover:bg-green-700 hover:shadow-green-500/30'
+                    ? 'bg-slate-300 cursor-wait text-slate-600' 
+                    : 'bg-gradient-to-r from-purple-600 to-teal-500 hover:shadow-purple-500/30 hover:scale-[1.02] active:scale-95'
                 }`}
               >
-                {isDownloading ? '⚡ Generating PDF Report...' : '📥 Download Full PDF Report'}
+                {isDownloading ? (
+                   <span className="flex items-center gap-2">
+                     <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin"></div>
+                     Generating...
+                   </span>
+                ) : (
+                  <>
+                    <Download size={18} /> Download Full Report
+                  </>
+                )}
               </button>
             </div>
 
-            <div id="pdf-report-content" className="p-4 rounded-xl">
+            {/* Main Content Area */}
+            <div id="pdf-report-content" className="p-2 sm:p-4 rounded-3xl bg-transparent">
               <InvoiceUploader onUploadSuccess={handleUploadSuccess} />
               <Dashboard batchId={currentBatchId} />
             </div>

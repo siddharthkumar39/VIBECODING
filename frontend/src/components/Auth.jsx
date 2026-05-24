@@ -1,3 +1,4 @@
+// Auth.jsx
 import { useState } from 'react';
 const API_BASE_URL = import.meta.env.VITE_API_URL || "https://aiinvoicebackend.onrender.com"
 
@@ -16,9 +17,9 @@ const Auth = ({ onLoginSuccess }) => {
     setError('');
     setLoading(true);
 
-const url = isLogin
- ? `${API_BASE_URL}/login`
- : `${API_BASE_URL}/signup`;
+    const url = isLogin
+      ? `${API_BASE_URL}/login`
+      : `${API_BASE_URL}/signup`;
     
     // API request body
     const bodyData = isLogin 
@@ -58,47 +59,61 @@ const url = isLogin
   };
 
   return (
-    <div className="flex justify-center items-center h-[70vh]">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
-        <h2 className="bg-yellow-400 text-3xl font-extrabold text-center text-gray-800 mb-6">
-          {isLogin ? 'Welcome Back 👋' : 'Create Account 🚀'}
-        </h2>
+    <div className="w-full flex justify-center items-center py-12">
+      <div className="bg-white/60 backdrop-blur-2xl p-10 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] w-full max-w-md border border-white/80">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-700 to-teal-600 mb-2">
+            {isLogin ? 'Welcome Back' : 'Create Account'}
+          </h2>
+          <p className="text-sm text-gray-500 font-medium">
+            {isLogin ? 'Enter your details to access your dashboard.' : 'Sign up to start analyzing your invoices.'}
+          </p>
+        </div>
         
-        {error && <p className="text-red-500 text-sm text-center mb-4 bg-red-50 p-2 rounded">{error}</p>}
+        {error && (
+          <div className="bg-red-50/80 backdrop-blur-sm border border-red-100 text-red-600 text-sm text-center mb-6 p-3 rounded-xl font-medium shadow-sm">
+            {error}
+          </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {!isLogin && (
             <div>
-              <label className="block text-sm font-medium text-gray-700">Full Name</label>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1 ml-1">Full Name</label>
               <input type="text" name="name" required onChange={handleChange}
-                className="mt-1 w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" />
+                className="w-full p-3.5 bg-white/50 backdrop-blur-sm border border-gray-200/60 rounded-2xl focus:bg-white focus:ring-2 focus:ring-purple-400/50 focus:border-purple-400 outline-none transition-all duration-300 text-gray-700 placeholder-gray-400 shadow-sm" 
+                placeholder="John Doe" />
             </div>
           )}
           
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email Address</label>
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1 ml-1">Email Address</label>
             <input type="email" name="email" required onChange={handleChange}
-              className="mt-1 w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" />
+              className="w-full p-3.5 bg-white/50 backdrop-blur-sm border border-gray-200/60 rounded-2xl focus:bg-white focus:ring-2 focus:ring-purple-400/50 focus:border-purple-400 outline-none transition-all duration-300 text-gray-700 placeholder-gray-400 shadow-sm" 
+              placeholder="you@example.com" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1 ml-1">Password</label>
             <input type="password" name="password" required onChange={handleChange}
-              className="mt-1 w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" />
+              className="w-full p-3.5 bg-white/50 backdrop-blur-sm border border-gray-200/60 rounded-2xl focus:bg-white focus:ring-2 focus:ring-purple-400/50 focus:border-purple-400 outline-none transition-all duration-300 text-gray-700 shadow-sm" 
+              placeholder="••••••••" />
           </div>
 
           <button type="submit" disabled={loading}
-            className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl hover:bg-purple-700 transition">
-            {loading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}
+            className="w-full mt-4 bg-gradient-to-r from-purple-600 to-teal-500 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 hover:scale-[1.01] transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed">
+            {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Sign Up')}
           </button>
         </form>
 
-        <p className="text-center mt-6 text-gray-600 text-sm">
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <button onClick={() => setIsLogin(!isLogin)} className="text-purple-600 font-bold hover:underline">
-            {isLogin ? 'Sign up' : 'Login'}
-          </button>
-        </p>
+        <div className="mt-8 pt-6 border-t border-gray-200/50 text-center">
+          <p className="text-gray-500 text-sm font-medium">
+            {isLogin ? "Don't have an account? " : "Already have an account? "}
+            <button onClick={() => setIsLogin(!isLogin)} className="text-purple-600 font-bold hover:text-teal-600 transition-colors">
+              {isLogin ? 'Create one now' : 'Log in instead'}
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   );
