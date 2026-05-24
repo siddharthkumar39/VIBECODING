@@ -1,4 +1,5 @@
 import { useState } from 'react';
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const Auth = ({ onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -15,7 +16,7 @@ const Auth = ({ onLoginSuccess }) => {
     setError('');
     setLoading(true);
 
-    const url = isLogin ? 'http://localhost:8000/login' : 'http://localhost:8000/signup';
+    const url = isLogin ? `${API_BASE_URL}/login` : `${API_BASE_URL}/signup`;
     
     // API request body
     const bodyData = isLogin 
@@ -54,7 +55,7 @@ const Auth = ({ onLoginSuccess }) => {
   return (
     <div className="flex justify-center items-center h-[70vh]">
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
-        <h2 className="text-3xl font-extrabold text-center text-gray-800 mb-6">
+        <h2 className="bg-yellow-400 text-3xl font-extrabold text-center text-gray-800 mb-6">
           {isLogin ? 'Welcome Back 👋' : 'Create Account 🚀'}
         </h2>
         
