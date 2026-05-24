@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y tesseract-ocr && rm -rf /var/lib/apt/li
 
 # Working directory set kar rahe hain
 WORKDIR /app
+RUN apt-get update && apt-get install -y gcc build-essential
 
 # Requirements copy karke install kia
 COPY requirements.txt .
