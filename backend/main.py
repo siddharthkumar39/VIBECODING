@@ -39,12 +39,7 @@ load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 app = FastAPI()
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = "HS256"
-MONGO_URI = os.getenv("MONGO_URI")
-db_client = AsyncIOMotorClient(MONGO_URI)
-db = db_client.invoice_analyzer  
-collection = db.invoices         
+from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,6 +48,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = "HS256"
+MONGO_URI = os.getenv("MONGO_URI")
+db_client = AsyncIOMotorClient(MONGO_URI)
+db = db_client.invoice_analyzer  
+collection = db.invoices         
 
 def extract_text_from_file(contents: bytes, content_type: str) -> str:
     extracted_text = ""
