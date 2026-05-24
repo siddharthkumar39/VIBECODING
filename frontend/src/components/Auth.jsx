@@ -33,6 +33,8 @@ const url = isLogin
       });
 
       const data = await response.json();
+      console.log(response.status);
+      console.log(data);
 
       if (response.ok) {
         if (isLogin) {
@@ -48,7 +50,8 @@ const url = isLogin
         setError(data.detail || "Something went wrong");
       }
     } catch (err) {
-      setError("Failed to connect to server");
+      console.log(err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
