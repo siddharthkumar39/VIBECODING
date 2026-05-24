@@ -1,3 +1,4 @@
+from typing import List
 from motor.motor_asyncio import AsyncIOMotorClient
 import pandas as pd
 from datetime import datetime
@@ -9,16 +10,37 @@ import pytesseract
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 from PIL import Image
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
 from dotenv import load_dotenv
+
+# Naye imports add karo
+from passlib.context import CryptContext
+import jwt
+from datetime import datetime, timedelta
+from pydantic import BaseModel
+
+# Password hashing context (Bcrypt apne aap SALTING handle karta hai)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+# Pydantic Models for Data Validation
+class UserCreate(BaseModel):
+    name: str
+    email: str
+    password: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
 
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 app = FastAPI()
-
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = "HS256"
 MONGO_URI = os.getenv("MONGO_URI")
 db_client = AsyncIOMotorClient(MONGO_URI)
 db = db_client.invoice_analyzer  # Database ka naam
@@ -118,45 +140,117 @@ async def upload_invoice(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 @app.get("/dashboard-stats")
-async def get_dashboard_stats():
+async def get_dashboard_stats(batch_id: str = None): # NAYA: Optional batch_id param
     try:
-        # DB se saare records fetch karo (bina _id ke kyunki _id JSON serializable nahi hota)
-        cursor = collection.find({}, {"_id": 0})
+        # NAYA LOGIC: Agar batch_id aayi hai, toh sirf uska data dhoondo. Nahi toh kuch mat do.
+        if not batch_id:
+            return {"total_expense": 0, "total_tax": 0, "category_summary": {}, "merchant_summary": {}}
+
+        query = {"batch_id": batch_id}
+        cursor = collection.find(query, {"_id": 0})
         invoices = await cursor.to_list(length=None)
         
-        # Agar DB empty hai toh default zero values return karo
         if not invoices:
-            return {
-                "total_expense": 0,
-                "category_summary": {},
-                "merchant_summary": {}
-            }
+            return {"total_expense": 0, "total_tax": 0, "category_summary": {}, "merchant_summary": {}}
             
-        # MongoDB data ko seedha Pandas DataFrame mein load karo
         df = pd.DataFrame(invoices)
-        
-        # Data Cleaning: Agar amount ya category missing ho toh drop/fill kardo
         df['total_amount'] = pd.to_numeric(df['total_amount'], errors='coerce').fillna(0)
+        df['tax_amount'] = pd.to_numeric(df['tax_amount'], errors='coerce').fillna(0)
         df['category'] = df['category'].fillna("Others")
         df['merchant_name'] = df['merchant_name'].fillna("Unknown")
         
-        # Calculations (Groupby Magic)
         total_expense = float(df['total_amount'].sum())
-        
-        # Category-wise sum: { "Food": 2000, "Travel": 500 }
+        total_tax = float(df['tax_amount'].sum())
         category_sum = df.groupby('category')['total_amount'].sum().to_dict()
-        
-        # Merchant-wise count: { "Zomato": 3, "Uber": 2 }
         merchant_count = df['merchant_name'].value_counts().to_dict()
         
         return {
             "total_expense": total_expense,
+            "total_tax": total_tax,
             "category_summary": category_sum,
             "merchant_summary": merchant_count
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Stats generate karne mein error: {str(e)}")
-    
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+ 
 @app.get("/")
 def read_root():
     return {"message": "AI Invoice Analyzer Backend is Live!"}
+
+from typing import List # Top par yeh import zaroor add karna
+
+# ... (tumhara baaki ka purana code) ...
+
+@app.post("/upload-batch")
+async def upload_batch_invoices(
+    files: List[UploadFile] = File(...),
+    batch_id: str = Form(...)  # NAYA: Frontend se batch_id aayega
+):
+    allowed_types = ["application/pdf", "image/jpeg", "image/png", "image/webp"]
+    successful_uploads = []
+    failed_uploads = []
+
+    for file in files:
+        if file.content_type not in allowed_types:
+            failed_uploads.append({"filename": file.filename, "reason": "Invalid file type"})
+            continue
+            
+        try:
+            contents = await file.read()
+            invoice_text = extract_text_from_file(contents, file.content_type)
+            ai_extracted_data = analyze_invoice_with_groq(invoice_text)
+            
+            db_document = ai_extracted_data.copy()
+            db_document["uploaded_at"] = datetime.utcnow()
+            db_document["source_file"] = file.filename
+            db_document["batch_id"] = batch_id # NAYA: DB me batch_id save kar rahe hain
+            
+            await collection.insert_one(db_document)
+            successful_uploads.append({"filename": file.filename, "data": ai_extracted_data})
+        except Exception as e:
+            failed_uploads.append({"filename": file.filename, "reason": str(e)})
+
+    return {
+        "message": f"Batch process complete! {len(successful_uploads)} success.",
+        "successful_uploads": successful_uploads,
+        "failed_uploads": failed_uploads
+    }
+@app.post("/signup")
+async def signup(user: UserCreate):
+    # 1. Check karo email pehle se toh nahi hai
+    existing_user = await db.users.find_one({"email": user.email})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # 2. Password ko Hash aur Salt karo
+    hashed_password = pwd_context.hash(user.password)
+
+    # 3. Database me save karo (Plain password kabhi save nahi hota)
+    new_user = {
+        "name": user.name,
+        "email": user.email,
+        "password": hashed_password,
+        "created_at": datetime.utcnow()
+    }
+    await db.users.insert_one(new_user)
+    return {"message": "User created successfully"}
+
+@app.post("/login")
+async def login(user: UserLogin):
+    # 1. User find karo
+    db_user = await db.users.find_one({"email": user.email})
+    
+    # 2. Verify Password (pwd_context automatic salt check karke verify karega)
+    if not db_user or not pwd_context.verify(user.password, db_user["password"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    # 3. Generate JWT Token (Taki user logged in rahe)
+    expiration = datetime.utcnow() + timedelta(hours=24) # 24 hours expiry
+    token_payload = {"sub": user.email, "exp": expiration}
+    token = jwt.encode(token_payload, SECRET_KEY, algorithm=ALGORITHM)
+
+    return {
+        "message": "Login successful", 
+        "access_token": token, 
+        "name": db_user["name"]
+    }
