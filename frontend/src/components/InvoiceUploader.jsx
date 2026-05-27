@@ -8,6 +8,8 @@ const InvoiceUploader = ({ onUploadSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [singleResult, setSingleResult] = useState(null);
   const [batchMessage, setBatchMessage] = useState("");
+  const [loadingText, setLoadingText] = useState("Analyze Invoices");
+
 
   useEffect(() => {
     const savedResult = localStorage.getItem('singleInvoiceResult');
@@ -19,6 +21,33 @@ const InvoiceUploader = ({ onUploadSuccess }) => {
       }
     }
   }, []);
+  useEffect(() => {
+  let interval;
+  
+  if (loading) {
+    // Ye hain tere catchy messages
+    const messages = [
+      "🚀 Beaming your bills to the AI...",
+      "🔍 AI is reading the fine print...",
+      "🧮 Crunching the numbers & taxes...",
+      "☕ Grab a sip, extracting data...",
+      "✨ Almost there! Generating insights..."
+    ];
+    
+    let currentIndex = 0;
+    setLoadingText(messages[0]); // Shuruwat pehle message se
+    
+    // Har 3.5 seconds mein text badlega
+    interval = setInterval(() => {
+      currentIndex = (currentIndex + 1) % messages.length;
+      setLoadingText(messages[currentIndex]);
+    }, 3500); 
+  } else {
+    setLoadingText(`Analyze ${files.length > 0 ? files.length : ''} Invoices`);
+  }
+
+  return () => clearInterval(interval); // Cleanup
+}, [loading, files.length]);
 
   const handleFileChange = (e) => {
     setFiles(Array.from(e.target.files));
