@@ -66,7 +66,7 @@ def extract_text_from_file(contents: bytes, content_type: str) -> str:
         except Exception as e:
             raise Exception(f"PDF se text nikalne mein error: {str(e)}")
             
-    elif content_type in ["image/jpeg", "image/png", "image/webp"]:
+        elif content_type in ["image/jpeg", "image/png", "image/webp"]:
         try:
             image = Image.open(io.BytesIO(contents))
             extracted_text = pytesseract.image_to_string(image)
@@ -208,8 +208,15 @@ async def get_financial_insights(batch_id: str = None):
             
         df = pd.DataFrame(invoices)
         df['total_amount'] = pd.to_numeric(df['total_amount'], errors='coerce').fillna(0)
+        df['tax_amount'] = pd.to_numeric(df['tax_amount'], errors='coerce').fillna(0)
         df['category'] = df['category'].fillna("Others")
+        df['merchant_name'] = df['merchant_name'].fillna("Unknown")
+        
+        # 🔥 GRAPHS, CHARTS AUR DASHBOARD KA SAARA CALCULATION WAPAS AAGAYA 🔥
+        total_expense = df['total_amount'].sum()
+        total_tax = df['tax_amount'].sum()
         category_sum = df.groupby('category')['total_amount'].sum().to_dict()
+        merchant_count = df['merchant_name'].value_counts().to_dict()
         
         prompt = f"""
         Act as an expert financial advisor. Based on the following spending summary of a user:
@@ -231,7 +238,15 @@ async def get_financial_insights(batch_id: str = None):
         )
         
         insights_data = json.loads(chat_completion.choices[0].message.content)
-        return insights_data
+        
+        # Saara data ikattha karke frontend par bhej rahe hain
+        return {
+            "total_expense": total_expense,
+            "total_tax": total_tax,
+            "category_summary": category_sum,
+            "merchant_summary": merchant_count,
+            **insights_data
+        }
         
     except Exception as e:
         print(f"Error: {e}") 
