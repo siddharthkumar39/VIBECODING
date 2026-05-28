@@ -150,7 +150,7 @@ const InvoiceUploader = ({ onUploadSuccess }) => {
           loading || files.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 hover:shadow-purple-500/30'
         }`}
       >
-        {loading ? `⚡ Compressing & Processing...` : `Analyze ${files.length > 0 ? files.length : ''} Invoices`}
+        {loadingText}
       </button>
 
       {batchMessage && (

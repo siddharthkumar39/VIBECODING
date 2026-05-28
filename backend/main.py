@@ -108,48 +108,60 @@ def analyze_invoice_with_groq(invoice_text: str):
 async def upload_invoice(file: UploadFile = File(...)):
     allowed_types = ["application/pdf", "image/jpeg", "image/png", "image/webp"]
     if file.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail="Upload PDF, JPG, PNG, or WEBP only.")
+   import gc # RAM clear karne ke liye jadoo
 
+# SIRF EK BAAR FUNCTION: Ye function theek se error print karega ab!
+async def process_single_file(file: UploadFile, batch_id: str):
     try:
         contents = await file.read()
-        invoice_text = extract_text_from_file(contents, file.content_type)
-        ai_extracted_data = analyze_invoice_with_groq(invoice_text)
+        
+        invoice_text = await asyncio.to_thread(extract_text_from_file, contents, file.content_type)
+        ai_extracted_data = await asyncio.to_thread(analyze_invoice_with_groq, invoice_text)
         
         db_document = ai_extracted_data.copy()
         db_document["uploaded_at"] = datetime.utcnow()
+        db_document["source_file"] = file.filename
+        db_document["batch_id"] = batch_id 
         
         await collection.insert_one(db_document)
-        return {
-            "message": "Invoice analyzed successfully by 70B Versatile!",
-            "filename": file.filename,
-            "extracted_data": ai_extracted_data
-        }
+        return {"status": "success", "filename": file.filename, "data": ai_extracted_data}
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+        # YAHAN ERROR PRINT HOGA
+        print(f"❌ ASLI ERROR '{file.filename}' MEIN YE HAI: {str(e)}")
+        return {"status": "failed", "filename": file.filename, "reason": str(e)}
 
-@app.get("/dashboard-stats")
-async def get_dashboard_stats(batch_id: str = None): 
-    try:
-        if not batch_id:
-            return {"total_expense": 0, "total_tax": 0, "category_summary": {}, "merchant_summary": {}}
+@app.post("/upload-batch")
+async def upload_batch_invoices(
+    files: List[UploadFile] = File(...),
+    batch_id: str = Form(...)
+):
+    allowed_types = ["application/pdf", "image/jpeg", "image/png", "image/webp"]
+    successful_uploads = []
+    failed_uploads = []
 
-        query = {"batch_id": batch_id}
-        cursor = collection.find(query, {"_id": 0})
-        invoices = await cursor.to_list(length=None)
-        
-        if not invoices:
-            return {"total_expense": 0, "total_tax": 0, "category_summary": {}, "merchant_summary": {}}
+    # 🛠️ LOOP LAGA DIYA: Ab saari files line mein lag kar ek-ek karke jayengi
+    for file in files:
+        if file.content_type not in allowed_types:
+            failed_uploads.append({"filename": file.filename, "reason": "Invalid file type"})
+            continue
             
-        df = pd.DataFrame(invoices)
-        df['total_amount'] = pd.to_numeric(df['total_amount'], errors='coerce').fillna(0)
-        df['tax_amount'] = pd.to_numeric(df['tax_amount'], errors='coerce').fillna(0)
-        df['category'] = df['category'].fillna("Others")
-        df['merchant_name'] = df['merchant_name'].fillna("Unknown")
+        # Ek file process karo
+        res = await process_single_file(file, batch_id)
         
-        total_expense = float(df['total_amount'].sum())
-        total_tax = float(df['tax_amount'].sum())
-        category_sum = df.groupby('category')['total_amount'].sum().to_dict()
-        merchant_count = df['merchant_name'].value_counts().to_dict()
+        if res["status"] == "success":
+            successful_uploads.append({"filename": res["filename"], "data": res["data"]})
+        else:
+            failed_uploads.append({"filename": res["filename"], "reason": res["reason"]})
+            
+        # 🔥 JADOO: Har file ke baad memory (RAM) ka kachra saaf kar do 🔥
+        gc.collect() 
+
+    return {
+        "message": f"Batch process complete! {len(successful_uploads)} success.",
+        "successful_uploads": successful_uploads,
+        "failed_uploads": failed_uploads
+    }
         
         return {
             "total_expense": total_expense,
