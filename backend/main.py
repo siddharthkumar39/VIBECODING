@@ -66,7 +66,7 @@ def extract_text_from_file(contents: bytes, content_type: str) -> str:
         except Exception as e:
             raise Exception(f"PDF se text nikalne mein error: {str(e)}")
             
-        elif content_type in ["image/jpeg", "image/png", "image/webp"]:
+    elif content_type in ["image/jpeg", "image/png", "image/webp"]:
         try:
             image = Image.open(io.BytesIO(contents))
             extracted_text = pytesseract.image_to_string(image)
@@ -136,13 +136,11 @@ async def upload_batch_invoices(
     successful_uploads = []
     failed_uploads = []
 
-    # 🛠️ LOOP LAGA DIYA: Ab saari files line mein lag kar ek-ek karke jayengi
     for file in files:
         if file.content_type not in allowed_types:
             failed_uploads.append({"filename": file.filename, "reason": "Invalid file type"})
             continue
             
-        # Ek file process karo
         res = await process_single_file(file, batch_id)
         
         if res["status"] == "success":
@@ -150,7 +148,6 @@ async def upload_batch_invoices(
         else:
             failed_uploads.append({"filename": res["filename"], "reason": res["reason"]})
             
-        # 🔥 JADOO: Har file ke baad memory (RAM) ka kachra saaf kar do 🔥
         gc.collect() 
 
     return {
@@ -212,11 +209,10 @@ async def get_financial_insights(batch_id: str = None):
         df['category'] = df['category'].fillna("Others")
         df['merchant_name'] = df['merchant_name'].fillna("Unknown")
         
-        # 🔥 GRAPHS, CHARTS AUR DASHBOARD KA SAARA CALCULATION WAPAS AAGAYA 🔥
-        total_expense = df['total_amount'].sum()
-        total_tax = df['tax_amount'].sum()
+        total_expense = float(df['total_amount'].sum())
+        total_tax = float(df['tax_amount'].sum())
         category_sum = df.groupby('category')['total_amount'].sum().to_dict()
-        merchant_count = df['merchant_name'].value_counts().to_dict()
+        merchant_count = df.groupby('merchant_name').size().to_dict()
         
         prompt = f"""
         Act as an expert financial advisor. Based on the following spending summary of a user:
@@ -239,7 +235,6 @@ async def get_financial_insights(batch_id: str = None):
         
         insights_data = json.loads(chat_completion.choices[0].message.content)
         
-        # Saara data ikattha karke frontend par bhej rahe hain
         return {
             "total_expense": total_expense,
             "total_tax": total_tax,
