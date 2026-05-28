@@ -1,5 +1,6 @@
 from typing import List
 from motor.motor_asyncio import AsyncIOMotorClient
+import gc
 import pandas as pd
 from datetime import datetime, timedelta
 import os
@@ -13,14 +14,13 @@ from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
 from dotenv import load_dotenv
+from passlib.context import CryptContext
+import jwt
+from pydantic import BaseModel
 
 # Smart Fix: Windows aur Linux (Render) ke liye Tesseract path
 if os.name == 'nt':  
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
-from passlib.context import CryptContext
-import jwt
-from pydantic import BaseModel
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -39,7 +39,6 @@ load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 app = FastAPI()
-from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,6 +47,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 MONGO_URI = os.getenv("MONGO_URI")
@@ -104,13 +104,10 @@ def analyze_invoice_with_groq(invoice_text: str):
     
     return json.loads(chat_completion.choices[0].message.content)
 
-@app.post("/upload")
-async def upload_invoice(file: UploadFile = File(...)):
-    allowed_types = ["application/pdf", "image/jpeg", "image/png", "image/webp"]
-    if file.content_type not in allowed_types:
-   import gc # RAM clear karne ke liye jadoo
+@app.get("/")
+def read_root():
+    return {"message": "AI Invoice Analyzer Backend is Live!"}
 
-# SIRF EK BAAR FUNCTION: Ye function theek se error print karega ab!
 async def process_single_file(file: UploadFile, batch_id: str):
     try:
         contents = await file.read()
@@ -127,7 +124,6 @@ async def process_single_file(file: UploadFile, batch_id: str):
         return {"status": "success", "filename": file.filename, "data": ai_extracted_data}
         
     except Exception as e:
-        # YAHAN ERROR PRINT HOGA
         print(f"❌ ASLI ERROR '{file.filename}' MEIN YE HAI: {str(e)}")
         return {"status": "failed", "filename": file.filename, "reason": str(e)}
 
@@ -156,74 +152,6 @@ async def upload_batch_invoices(
             
         # 🔥 JADOO: Har file ke baad memory (RAM) ka kachra saaf kar do 🔥
         gc.collect() 
-
-    return {
-        "message": f"Batch process complete! {len(successful_uploads)} success.",
-        "successful_uploads": successful_uploads,
-        "failed_uploads": failed_uploads
-    }
-        
-        return {
-            "total_expense": total_expense,
-            "total_tax": total_tax,
-            "category_summary": category_sum,
-            "merchant_summary": merchant_count
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
- 
-@app.get("/")
-def read_root():
-    return {"message": "AI Invoice Analyzer Backend is Live!"}
-
-# SIRF EK BAAR FUNCTION: Ye function theek se error print karega ab!
-async def process_single_file(file: UploadFile, batch_id: str, sem: asyncio.Semaphore):
-    async with sem: 
-        try:
-            contents = await file.read()
-            
-            invoice_text = await asyncio.to_thread(extract_text_from_file, contents, file.content_type)
-            ai_extracted_data = await asyncio.to_thread(analyze_invoice_with_groq, invoice_text)
-            
-            db_document = ai_extracted_data.copy()
-            db_document["uploaded_at"] = datetime.utcnow()
-            db_document["source_file"] = file.filename
-            db_document["batch_id"] = batch_id 
-            
-            await collection.insert_one(db_document)
-            return {"status": "success", "filename": file.filename, "data": ai_extracted_data}
-            
-        except Exception as e:
-            # YAHAN ERROR PRINT HOGA
-            print(f"❌ ASLI ERROR '{file.filename}' MEIN YE HAI: {str(e)}")
-            return {"status": "failed", "filename": file.filename, "reason": str(e)}
-
-@app.post("/upload-batch")
-async def upload_batch_invoices(
-    files: List[UploadFile] = File(...),
-    batch_id: str = Form(...)
-):
-    allowed_types = ["application/pdf", "image/jpeg", "image/png", "image/webp"]
-    successful_uploads = []
-    failed_uploads = []
-    valid_files = []
-
-    for file in files:
-        if file.content_type not in allowed_types:
-            failed_uploads.append({"filename": file.filename, "reason": "Invalid file type"})
-        else:
-            valid_files.append(file)
-
-    sem = asyncio.Semaphore(10) 
-    
-    tasks = [process_single_file(file, batch_id, sem) for file in valid_files]
-    results = await asyncio.gather(*tasks)
-
-    for res in results:
-        if res["status"] == "success":
-            successful_uploads.append({"filename": res["filename"], "data": res["data"]})
-        else:
-            failed_uploads.append({"filename": res["filename"], "reason": res["reason"]})
 
     return {
         "message": f"Batch process complete! {len(successful_uploads)} success.",
@@ -307,4 +235,4 @@ async def get_financial_insights(batch_id: str = None):
         
     except Exception as e:
         print(f"Error: {e}") 
-        return {"summary": "Error generating analysis.", "insights": [], "recommendations": []} 
+        return {"summary": "Error generating analysis.", "insights": [], "recommendations": []}
